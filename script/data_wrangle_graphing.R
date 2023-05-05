@@ -5,7 +5,7 @@
 library(tidyverse)
 library(here)
 
-fish <- read_csv(here("data","songs_clean.csv")) 
+fish <- read_csv(here("final_project","data","songs_clean.csv")) 
 
 songs_count <- fish %>% 
   group_by( year,total_length, species_code, reef_code) %>%  #group analysis 

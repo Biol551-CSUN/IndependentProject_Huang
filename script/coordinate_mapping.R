@@ -10,7 +10,7 @@ library(htmlwidgets)
 
 
 #load data
-transect <- read_csv(here("final_independent_project",
+transect <- read_csv(here("final_independent_project","final_project",
                           "data","transect_code.csv")) %>% 
     drop_na() %>% 
   separate(col = transect_code,

@@ -3,12 +3,15 @@
 library(tidyverse)
 library(here)
 library(leaflet)
-library(shiny)
 library(DT)
+library(rsconnect)
+library(shinythemes)
+# library(ShinyR)
+
 
 #####----------Load data---------####
 
-transect <- read_csv(here("data","transect_code.csv")) %>% 
+transect <- read_csv(here("SONGS","data","transect_code.csv")) %>% 
   drop_na() %>% 
   separate(col = transect_code,
            into = c("reef","transect_val"),
@@ -18,7 +21,7 @@ transect <- read_csv(here("data","transect_code.csv")) %>%
         reef:transect_val, #columns to unite
         sep = " ")
 
-fish <- read_csv(here("data","songs_clean.csv")) %>% 
+fish <- read_csv(here("SONGS","data","songs_clean.csv")) %>% 
   select(c(phase_built_code,transect_code)) 
 fish <- unique(fish[,c("phase_built_code","transect_code")]) %>% 
   mutate(phase_code = case_when(phase_built_code=="E" ~ 1,
@@ -34,10 +37,10 @@ smk <- transect %>% filter(reef_name%in% "SMK")
 
 
 #add fish data
-fish <- read_csv(here("data","songs_clean.csv")) 
+fish_length <- read_csv(here("SONGS","data","songs_clean.csv")) 
 
 #clean dataset
-songs_count <- fish %>% 
+songs_count <- fish_length %>% 
   group_by( year,total_length, species_code, reef_code) %>%  #group analysis 
   mutate(species_code = as_factor(factor(species_code,   #reorder the factors
                                          levels = c( "SEPU","PACL","PANE","EMJA","CHPU","OXCA"))),
@@ -92,28 +95,41 @@ smktext <- paste(
 ################################################
 
 ui <- fluidPage(
-  textInput(inputId = "choice",
-             label = "SONGS Dive sites",
-             value = "All Survey Sites"),
+  #add leaflet map
   leafletOutput("map"),
+  p(),
   
-  
-  
-  #Add selection slide 
-  checkboxGroupInput("species_code", label = h3("Select Species"), 
-                     choices = list("SEPU" ="SEPU", "OXCA"="OXCA",
+  #Add species selection choicebox 
+  checkboxGroupInput("species_code",
+                                   label = h3("Select Species"),  #label section
+                     choices = list("SEPU" ="SEPU", "OXCA"="OXCA", #add choices
                                     "CHPU"="CHPU", "PACL"="PACL", 
                                     "PANE" = "PANE", "EMJA" = "EMJA"),
-                     selected = "SEPU"),
+                     selected = "SEPU"), #initial selection
   # hr(),
   # fluidRow(column(3, verbatimTextOutput("value")))
+  
+  #add site selection slide
+  checkboxGroupInput("site", label = h3("Select Reef"), 
+                     choices = list("WNR" = "WNR" , 
+                                    "SMK" = "SMK",
+                                    "BK"="BK"),
+                     selected = "WNR"),
   
   # Make space for a table
   h2("Data Table"),
   DT::dataTableOutput("datatable"),
   
+  textInput(inputId = "choice",
+            label = "Label plot title here",
+            value = "Wheeler North Reef"),
+  # leafletOutput("map"), # can attach to leaflet if desired
+  
   # making space for density plot 
-  plotOutput("density")
+  plotOutput("density"),
+  
+  #edit theme
+  theme = shinytheme("cosmo")
   
   )
 
@@ -124,13 +140,10 @@ server <- function(input, output){
   
   data<-reactive({
     tibble(songs_count %>%
-             filter(species_code %in% c(input$species_code))) #make dataset own object that is reactive everytime num is changed
+             filter(
+               species_code %in% c(input$species_code))) #make dataset own object that is reactive everytime num is changed
   })
   
-  
-  #####-----Add text----####  
-  #Output for printing text for map
-  output$value <- renderPrint({input$choice})
   
   ####-----add leaflet map to input-----
   output$map <- renderLeaflet(
@@ -170,22 +183,23 @@ server <- function(input, output){
                        label = smktext,
                        labelOptions =  labelOptions( style = list("font-weight" = "normal", padding = "3px 8px"), textsize = "13px", direction = "auto")
       ) %>% 
-      addControl(input$choice, #input title name, which is determined by input
-                 position = "topleft", #position of the map
-                 className = "map-title") %>%
+      # addControl(input$choice, #input title name, which is determined by input - taken out but can add if desired
+      #            position = "topleft", #position of the map
+      #            className = "map-title") %>%
       addLayersControl(overlayGroups = c(mybins), 
                        options = layersControlOptions(collapsed = FALSE)) 
   )
 
   ####-----Print Data Table-----
   output$datatable = DT::renderDataTable({
-    fish %>% 
+    fish_length %>% 
       group_by( year,total_length, species_code, reef_code) %>%  #group analysis 
       mutate(total_length = as.numeric(total_length), #change length to numeric
              reef_code = as_factor(reef_code),
              year = as_factor(year)) %>%   
       summarise(count = sum(count)) %>% 
-      filter(species_code %in% c(input$species_code))
+      filter(species_code %in% c(input$species_code),
+             reef_code%in% c(input$site))
   })
   
   
@@ -193,11 +207,13 @@ server <- function(input, output){
   #Print check box to select species you want to look at
   output$value <- renderPrint({ input$species_code })
   
+  #####-----Add text for title----####  
+  #Output for printing text for map
+  output$value <- renderPrint({input$choice})
   
   #####-----Print Density plot----####  
   output$density <- renderPlot({
     data() %>% 
-      # filter(reef_code%in% c("BK","SMK")) %>% 
       mutate(year = as_factor(year)) %>% 
       ggplot()+   #specify x & solor by year
       geom_density(
@@ -211,12 +227,12 @@ server <- function(input, output){
         CHPU = scale_y_continuous(limits = c(0,0.9)),
         OXCA = scale_y_continuous(limits = c(0,1.0))
       ))+
-      scale_x_continuous(breaks = seq(0,max(fish$total_length), 10),
+      scale_x_continuous(breaks = seq(0,max(fish_length$total_length), 10),
                          limits = c(0,NA))+  #scale x to be max lenght
       labs(x = "Total Length (mm)",    #edit axis & legend labels
            y = "Density", 
            color = "Year",
-           title = element_text("Size distribution on Natural Reefs (BK & SMK)"))+
+           title = element_text(input$choice))+
       # scale_color_viridis_d()+  #color palatte
       scale_fill_manual( values = c("#440154","#481f70","#443983",
                                              "#3b528b","#31688e","#287c8e",

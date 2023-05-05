@@ -1,0 +1,13 @@
+name: songs
+title: SONGS
+username:
+account: jonlhuang
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 9033091
+bundleId: 7176081
+url: https://jonlhuang.shinyapps.io/SONGS/
+when: 1683242906.53353
+lastSyncTime: 1683242906.53354
+asMultiple: FALSE
+asStatic: FALSE
