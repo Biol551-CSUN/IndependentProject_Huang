@@ -128,6 +128,7 @@ ui <- fluidPage(
   # making space for density plot 
   plotOutput("density"),
   
+  
   #edit theme
   theme = shinytheme("cosmo")
   
@@ -141,7 +142,8 @@ server <- function(input, output){
   data<-reactive({
     tibble(songs_count %>%
              filter(
-               species_code %in% c(input$species_code))) #make dataset own object that is reactive everytime num is changed
+               species_code %in% c(input$species_code),
+               reef_code %in% c(input$site))) #make dataset own object that is reactive everytime num is changed
   })
   
   
@@ -211,6 +213,7 @@ server <- function(input, output){
   #Output for printing text for map
   output$value <- renderPrint({input$choice})
   
+  
   #####-----Print Density plot----####  
   output$density <- renderPlot({
     data() %>% 
@@ -218,17 +221,18 @@ server <- function(input, output){
       ggplot()+   #specify x & solor by year
       geom_density(
         aes(x = total_length, color = year, group = year),linewidth = 1.5)+   #use density plot
-      facet_wrap(~species_code, ncol=1, scales = "free")+ #separate plots by species
-      ggh4x::facetted_pos_scales(x = NULL, y = list( #custom scales for each facet
-        SEPU = scale_y_continuous(limits = c(0,0.075)),
-        PACL = scale_y_continuous(limits = c(0,0.15)),
-        PANE = scale_y_continuous(limits = c(0,0.24)),
-        EMJA = scale_y_continuous(limits = c(0,0.15)),
-        CHPU = scale_y_continuous(limits = c(0,0.9)),
-        OXCA = scale_y_continuous(limits = c(0,1.0))
+      # scale_x_continuous(breaks = seq(0,max(fish_length$total_length), 10))+  #scale x to be max lenght
+
+      facet_wrap(~species_code+reef_code, ncol=length(input$site), scales = "free")+ #separate plots by species
+      ggh4x::facetted_pos_scales(y = NULL, x = list( #custom scales for each facet
+        SEPU = scale_x_continuous(limits = c(0,75)),
+        PACL = scale_x_continuous(limits = c(0,60)),
+        PANE = scale_x_continuous(limits = c(0,40)),
+        EMJA = scale_x_continuous(limits = c(0,40)),
+        CHPU = scale_x_continuous(limits = c(0,30)),
+        OXCA = scale_x_continuous(limits = c(0,30))
       ))+
-      scale_x_continuous(breaks = seq(0,max(fish_length$total_length), 10),
-                         limits = c(0,NA))+  #scale x to be max lenght
+      # scale_y_continuous(limits = c(0,input$limit))+
       labs(x = "Total Length (mm)",    #edit axis & legend labels
            y = "Density", 
            color = "Year",
@@ -243,15 +247,20 @@ server <- function(input, output){
                          name = "Year")+
       theme_classic()+
       theme(panel.background = element_rect(fill = "grey90", color = "black"),
-            plot.title = element_text(hjust = 0.5, size = 40),
-            axis.text = element_text(size = 30),
+            plot.title = element_text(hjust = 0.5, size = 30),
+            axis.text = element_text(size = 20),
             axis.title = element_text(size = 17),
-            strip.text = element_text(size = 30),
-            legend.text = element_text(size = 30),
+            strip.text = element_text(size = 20),
+            legend.text = element_text(size = 20),
             legend.key.size = unit(1.5,"cm"),
-            legend.title = element_text(size = 30))
+            legend.title = element_text(size = 20),
+            axis.title.x = element_text(size = 20),
+            axis.title.y = element_text(size = 20)
+            )
     
-  }, height = 750, width = 750)
+
+    
+  }, height = 900, width = 1300)
   
 }
 
