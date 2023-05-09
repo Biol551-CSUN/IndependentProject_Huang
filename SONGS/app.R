@@ -95,10 +95,15 @@ smktext <- paste(
 ################################################
 
 ui <- fluidPage(
+  titlePanel( "SONGS Map"), #add a initial title
+  
   #add leaflet map
   leafletOutput("map"),
   p(),
   
+  fluidRow( #make seleciton into separate columns
+    column(3, #number of column
+           h2("Plot parameters"), #section title
   #Add species selection choicebox 
   checkboxGroupInput("species_code",
                                    label = h3("Select Species"),  #label section
@@ -108,22 +113,61 @@ ui <- fluidPage(
                      selected = "SEPU"), #initial selection
   # hr(),
   # fluidRow(column(3, verbatimTextOutput("value")))
+    ),
+  
+  column(3, 
+         offset = 0, #how much spacing between columns
   
   #add site selection slide
-  checkboxGroupInput("site", label = h3("Select Reef"), 
+  checkboxGroupInput("site", 
+                     label = h3("Select Reef"), 
                      choices = list("WNR" = "WNR" , 
                                     "SMK" = "SMK",
                                     "BK"="BK"),
                      selected = "WNR"),
+     ),
+  #add a slider for date
+ column(3,
+        checkboxGroupInput("year", 
+                           label = h3("Select Year"), 
+                           choices = c(2009:2021),
+                           selected = c(2009:2020))
+        
+ )
+    ),
   
   # Make space for a table
   h2("Data Table"),
   DT::dataTableOutput("datatable"),
+ 
+ #Customization for plot type
+ 
+ fluidRow(
+   column(3,
+          h2("Plot Selections"),
   
+          # select title
   textInput(inputId = "choice",
             label = "Label plot title here",
-            value = "Wheeler North Reef"),
+            value = "Wheeler North Reef")
+  ),
   # leafletOutput("map"), # can attach to leaflet if desired
+  
+  #selection for graph type
+  column(3,
+         selectInput("graph", label = h4("Select graph type"), 
+                     choices = list("Density" = "density", "Bar" = "bar"), 
+                     selected = "density")
+  
+  ),
+  
+  #add selection for axis limits
+  column(3,
+         numericInput("xaxis", label = h4("x-axis input"), value = 75),
+         numericInput("yaxis", label = h4("y-axis input"), value = 0.5)
+         
+  )
+ ),
   
   # making space for density plot 
   plotOutput("density"),
@@ -143,7 +187,8 @@ server <- function(input, output){
     tibble(songs_count %>%
              filter(
                species_code %in% c(input$species_code),
-               reef_code %in% c(input$site))) #make dataset own object that is reactive everytime num is changed
+               reef_code %in% c(input$site),
+               year %in% c(input$year))) #make dataset own object that is reactive everytime num is changed
   })
   
   
@@ -201,7 +246,8 @@ server <- function(input, output){
              year = as_factor(year)) %>%   
       summarise(count = sum(count)) %>% 
       filter(species_code %in% c(input$species_code),
-             reef_code%in% c(input$site))
+             reef_code%in% c(input$site),
+             year %in% c(input$year))
   })
   
   
@@ -209,13 +255,17 @@ server <- function(input, output){
   #Print check box to select species you want to look at
   output$value <- renderPrint({ input$species_code })
   
+  output$value <- renderPrint({ input$year })
+  
   #####-----Add text for title----####  
   #Output for printing text for map
   output$value <- renderPrint({input$choice})
   
   
   #####-----Print Density plot----####  
-  output$density <- renderPlot({
+  output$density <- renderPlot(
+    if(input$graph == "density")
+    {
     data() %>% 
       mutate(year = as_factor(year)) %>% 
       ggplot()+   #specify x & solor by year
@@ -224,16 +274,9 @@ server <- function(input, output){
       # scale_x_continuous(breaks = seq(0,max(fish_length$total_length), 10))+  #scale x to be max lenght
 
       facet_wrap(~species_code+reef_code, ncol=length(input$site), scales = "free")+ #separate plots by species
-      ggh4x::facetted_pos_scales(y = NULL, x = list( #custom scales for each facet
-        SEPU = scale_x_continuous(limits = c(0,75)),
-        PACL = scale_x_continuous(limits = c(0,60)),
-        PANE = scale_x_continuous(limits = c(0,40)),
-        EMJA = scale_x_continuous(limits = c(0,40)),
-        CHPU = scale_x_continuous(limits = c(0,30)),
-        OXCA = scale_x_continuous(limits = c(0,30))
-      ))+
-      # scale_y_continuous(limits = c(0,input$limit))+
-      labs(x = "Total Length (mm)",    #edit axis & legend labels
+        scale_x_continuous(limits = c(0,input$xaxis))+
+        scale_y_continuous(limits = c(0,input$yaxis))+
+      labs(x = "Total Length (cm)",    #edit axis & legend labels
            y = "Density", 
            color = "Year",
            title = element_text(input$choice))+
@@ -259,6 +302,38 @@ server <- function(input, output){
             )
     
 
+    
+  } else{ #make bar plot if not density plot
+    fish_length %>% 
+      group_by( year,total_length, species_code, reef_code) %>%  #group analysis 
+      mutate(total_length = as.numeric(total_length), #change length to numeric
+             reef_code = as_factor(reef_code),
+             year = as_factor(year)) %>%   
+      summarise(count = sum(count)) %>% 
+      filter(species_code %in% c(input$species_code),
+             reef_code%in% c(input$site),
+             year %in% c(input$year)) %>% 
+      ggplot(aes(x = total_length, y = count, fill = year))+
+      geom_col()+
+      facet_wrap(~reef_code+species_code, 
+                 ncol=length(input$site))+
+      labs(x = "Total Length (cm)",    #edit axis & legend labels
+           y = "Count", 
+           color = "Year",
+           title = element_text(input$choice))+
+      scale_fill_viridis_d()+
+      theme_minimal()+
+      theme(panel.background = element_rect(fill = "grey90", color = "black"), #edit theme
+            plot.title = element_text(hjust = 0.5, size = 30),
+            axis.text = element_text(size = 20),
+            axis.title = element_text(size = 17),
+            strip.text = element_text(size = 20),
+            legend.text = element_text(size = 20),
+            legend.key.size = unit(1.5,"cm"),
+            legend.title = element_text(size = 20),
+            axis.title.x = element_text(size = 20),
+            axis.title.y = element_text(size = 20)
+      )
     
   }, height = 900, width = 1300)
   
