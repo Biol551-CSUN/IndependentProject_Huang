@@ -23,10 +23,10 @@ transect <- read_csv(here("SONGS","data","transect_data.csv")) %>%
 
 fish <- read_csv(here("SONGS","data","songs_surveydata_clean.csv")) %>% 
   select(c(phase_built_code,transect_code)) 
-fish <- unique(fish[,c("phase_built_code","transect_code")]) %>% 
+fish <- unique(fish[,c("phase_built_code","transect_code")]) %>% #get unique codes for each phase so can differentiate WNR by phase later
   mutate(phase_code = case_when(phase_built_code=="E" ~ 1,
                                 phase_built_code=="M"~ 2,
-                                phase_built_code=="M2"~ 3))#get unique combination of columns
+                                phase_built_code=="M2"~ 3))
 
 transect <- full_join(transect,fish)
 
@@ -57,14 +57,14 @@ songs_count <- fish_length %>%
 # Create a color palette with handmade bins.
 mybins <- c("WNR","BK","SMK")
 myphase <- c("1","2","3")
-mypalette <- colorFactor( palette=c("green","aquamarine","darkgreen"), 
+mypalette <- colorFactor( palette=c("green","aquamarine","darkgreen"), #differentiate WNR phase by color
                           domain=transect$phase_code, #use phase_built_code
                           na.color="transparent") # if not on color palette, make transparent
 
 
 #create text box to place in map descriptor
 wnrtext <- paste(
-  "Longitude: ", wnr$Longitude, "<br/>", #Br/ = break/next row
+  "Longitude: ", wnr$Longitude, "<br/>",       #Br/ = break/next row
   "Latitude: ", wnr$Latitude, "<br/>",
   "Transect code: ",wnr$transect_code, "<br/>",
   "Transect full name: ", wnr$Transect, sep="","<br/>",
@@ -140,13 +140,12 @@ ui <- fluidPage(
   h2("Data Table"),
   DT::dataTableOutput("datatable"),
  
- #Customization for plot type
- 
+### customizing widgets for customizing graphs
  fluidRow(
    column(3,
           h2("Plot Selections"),
   
-          # select title
+ # Plot select title
   textInput(inputId = "choice",
             label = "Label plot title here",
             value = "Wheeler North Reef")
@@ -173,7 +172,7 @@ ui <- fluidPage(
   plotOutput("density"),
   
   
-  #edit theme
+  #edit theme of shiny
   theme = shinytheme("cosmo")
   
   )
@@ -181,24 +180,24 @@ ui <- fluidPage(
 
 
 
-server <- function(input, output){
+server <- function(input, output){ #add server part of shiny
   
-  data<-reactive({
+  data<-reactive({  #make dataset own object that is reactive everytime selection is changed
     tibble(songs_count %>%
-             filter(
+             filter( #make filter reactive so respond to selection in the customizing widgets
                species_code %in% c(input$species_code),
                reef_code %in% c(input$site),
-               year %in% c(input$year))) #make dataset own object that is reactive everytime num is changed
+               year %in% c(input$year)))
   })
   
   
   ####-----add leaflet map to input-----
   output$map <- renderLeaflet(
     leaflet() %>% 
-      addTiles()  %>% 
+      addTiles()  %>%  #base layer for leaflet
       setView( lat=33.38, lng=-117.55 , zoom=12) %>% #make view australia
       addProviderTiles("Esri.WorldImagery") %>% #change mape style
-      addCircleMarkers(data = wnr,
+      addCircleMarkers(data = wnr, #add dot fro WNR w/ inforation from text above
                        lat = wnr$Latitude,  #specify long/lat
                        lng = wnr$Longitude,
                        radius=8 , color= "green",
@@ -209,7 +208,7 @@ server <- function(input, output){
                        label = wnrtext,
                        labelOptions =  labelOptions( style = list("font-weight" = "normal", padding = "3px 8px"), textsize = "13px", direction = "auto")
       ) %>% 
-      addCircleMarkers(data = bk,
+      addCircleMarkers(data = bk, #add dot for BK w/ information from text above
                        lng=bk$Longitude,
                        lat=bk$Latitude,
                        radius=8 ,color="grey",
@@ -218,7 +217,7 @@ server <- function(input, output){
                        label = bktext,
                        labelOptions =  labelOptions( style = list("font-weight" = "normal", padding = "3px 8px"), textsize = "13px", direction = "auto")
       ) %>% 
-      addCircleMarkers(data = smk,
+      addCircleMarkers(data = smk,#add dot for SMK w/ information from text above
                        lng=smk$Longitude,
                        lat=smk$Latitude,
                        radius=8 ,
@@ -230,10 +229,10 @@ server <- function(input, output){
                        label = smktext,
                        labelOptions =  labelOptions( style = list("font-weight" = "normal", padding = "3px 8px"), textsize = "13px", direction = "auto")
       ) %>% 
-      # addControl(input$choice, #input title name, which is determined by input - taken out but can add if desired
+      # addControl(input$choice,            #input title name, which is determined by input - taken out but can add if desired
       #            position = "topleft", #position of the map
       #            className = "map-title") %>%
-      addLayersControl(overlayGroups = c(mybins), 
+      addLayersControl(overlayGroups = c(mybins),  #
                        options = layersControlOptions(collapsed = FALSE)) 
   )
 
@@ -254,7 +253,7 @@ server <- function(input, output){
   #####-----Add Checkbox----####  
   #Print check box to select species you want to look at
   output$value <- renderPrint({ input$species_code })
-  
+  #Print Checkbox to select what year is desired
   output$value <- renderPrint({ input$year })
   
   #####-----Add text for title----####  
@@ -307,22 +306,22 @@ server <- function(input, output){
     fish_length %>% 
       group_by( year,total_length, species_code, reef_code) %>%  #group analysis 
       mutate(total_length = as.numeric(total_length), #change length to numeric
-             reef_code = as_factor(reef_code),
+             reef_code = as_factor(reef_code), #change reefcode and year to factors
              year = as_factor(year)) %>%   
-      summarise(count = sum(count)) %>% 
+      summarise(count = sum(count)) %>%  #summarize so have count
       filter(species_code %in% c(input$species_code),
              reef_code%in% c(input$site),
              year %in% c(input$year)) %>% 
-      ggplot(aes(x = total_length, y = count, fill = year))+
+      ggplot(aes(x = total_length, y = count, fill = year))+ #using geom_col to make bargraph
       geom_col()+
-      facet_wrap(~reef_code+species_code, 
+      facet_wrap(~reef_code+species_code,  #separate by reef and species
                  ncol=length(input$site))+
       labs(x = "Total Length (cm)",    #edit axis & legend labels
            y = "Count", 
            color = "Year",
            title = element_text(input$choice))+
-      scale_fill_viridis_d()+
-      theme_minimal()+
+      scale_fill_viridis_d()+ #color scale
+      theme_minimal()+ #edit theme
       theme(panel.background = element_rect(fill = "grey90", color = "black"), #edit theme
             plot.title = element_text(hjust = 0.5, size = 30),
             axis.text = element_text(size = 20),
@@ -335,7 +334,7 @@ server <- function(input, output){
             axis.title.y = element_text(size = 20)
       )
     
-  }, height = 900, width = 1300)
+  }, height = 900, width = 1300) #Size of graph output
   
 }
 

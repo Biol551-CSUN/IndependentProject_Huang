@@ -11,7 +11,7 @@ Within this folder you have:
 -   Data folder 
 
     - 2 data dictionary files (data_dictionary.csv & species_code_dictionary.csv) to provide information on column names and their definitions
-    - 2 data files to provide data on fish size and abundance (songs_surveydata_clean.csv) and transect locations (transect_data.csv)
+    - 2 data files to provide data on fish size and abundance subseted from the original file based on species (songs_surveydata_clean.csv) and transect locations (transect_data.csv)
     
 -   rsconnect folder to connect R to shinyapp.io
 
