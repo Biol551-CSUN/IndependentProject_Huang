@@ -11,7 +11,7 @@ library(shinythemes)
 
 #####----------Load data---------####
 
-transect <- read_csv(here("SONGS","data","transect_code.csv")) %>% 
+transect <- read_csv(here("SONGS","data","transect_data.csv")) %>% 
   drop_na() %>% 
   separate(col = transect_code,
            into = c("reef","transect_val"),
@@ -21,7 +21,7 @@ transect <- read_csv(here("SONGS","data","transect_code.csv")) %>%
         reef:transect_val, #columns to unite
         sep = " ")
 
-fish <- read_csv(here("SONGS","data","songs_clean.csv")) %>% 
+fish <- read_csv(here("SONGS","data","songs_surveydata_clean.csv")) %>% 
   select(c(phase_built_code,transect_code)) 
 fish <- unique(fish[,c("phase_built_code","transect_code")]) %>% 
   mutate(phase_code = case_when(phase_built_code=="E" ~ 1,
@@ -37,7 +37,7 @@ smk <- transect %>% filter(reef_name%in% "SMK")
 
 
 #add fish data
-fish_length <- read_csv(here("SONGS","data","songs_clean.csv")) 
+fish_length <- read_csv(here("SONGS","data","songs_surveydata_clean.csv")) 
 
 #clean dataset
 songs_count <- fish_length %>% 
